@@ -14,6 +14,10 @@ warning.log
 
 # Distribution / packaging
 .Python
+*.json
+*.pickle
+*.yaml
+*.toml
 build/
 .vevn/
 develop-eggs/
