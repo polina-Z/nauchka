@@ -75,18 +75,22 @@ def load_dict(dct):
 
 
 def load_func(dct):
-    tmp_dct = {key: load_obj(dct[key]) for key in funcattrs_construct}
-    func_glob.update(tmp_dct["__globals__"])
-    tmp_dct["__globals__"] = func_glob
+    tmp_dct = {
+        key: (load_obj(dct[key]) if not key == "__globals__" else func_glob)
+        for key in funcattrs_construct
+    }
 
     func = types.FunctionType(*tmp_dct.values())
+    loaded[load_id_data(dct["__id__"])[0]] = (func, True)
+    func_glob.update(load_obj(dct["__globals__"]))
+
     for key in funcattrs_rest:
         setattr(func, key, load_obj(dct[key]))
 
     return func
 
 
-supported = {
+implemented = {
     object: lambda dct: object(),
     complex: lambda dct: complex(*dct["__value__"]),
     list: lambda dct: list(dct["__value__"]),
@@ -120,19 +124,10 @@ def load_obj(obj2load):
 
     cls = load_obj(obj2load["__class__"])
 
-    if "__bases__" in obj2load:
-        bases = load_obj(obj2load["__bases__"])
-        obj = cls(obj2load["__name__"], bases, {})
-    elif cls in supported:
-        obj = supported[cls](obj2load)
-    else:
-        obj = cls()
+    obj = implemented[cls](obj2load)
 
     loaded[tmp_obj] = (obj, True)
 
-    if "__dict__" in obj2load:
-        for key, value in load_obj(obj2load["__dict__"]).items():
-            setattr(obj, key, value)
     return obj
 
 
