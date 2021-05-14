@@ -42,7 +42,7 @@ code_attributes = (
     "co_cellvars",
 )
 
-module_attr = ("__name__", "__doc__")
+module_attributes = ("__name__", "__doc__")
 
 default_types = (
     *(
@@ -50,7 +50,12 @@ default_types = (
         for key in dir(builtins)
         if inspect.isclass(getattr(builtins, key))
     ),
-    *(getattr(types, key) for key in dir(types) if inspect.isclass(getattr(types, key))))
+    *(
+        getattr(types, key)
+        for key in dir(types)
+        if inspect.isclass(getattr(types, key))
+    ),
+)
 
 
 def dump_as_is(obj):
@@ -63,7 +68,9 @@ def dump_tuple(tuple_obj):
         try:
             tmp_list.append(dump_obj(obj))
         except TypeError as error:
-            logging.warning("<{}> was skipped because of {}".format(_dump_hint(obj), error))
+            logging.warning(
+                "<{}> was skipped because of {}".format(_dump_hint(obj), error)
+            )
     return tmp_list
 
 
@@ -72,12 +79,11 @@ def dump_id(obj):
 
 
 def dump_hint(obj):
-    if hasattr(obj, "__name__"):
-        string = "'{}'".format(obj.__name__)
-    else:
-        string = "instance"
-    string += " of '{}' at {}".format(type(obj).__name__, dump_id(obj))
-    return string
+    return "'{}' of '{}' at {}".format(
+        obj.__name__ if hasattr(obj, "__name__") else "instance",
+        type(obj).__name__,
+        dump_id(obj),
+    )
 
 
 def dump_simple_object(obj):
@@ -107,24 +113,19 @@ def dump_func(func):
         for const in code.co_consts:
             if type(const) is types.CodeType:
                 dump_globals(const)
+
     glob = []
     dump_globals(func.__code__)
     glob_dct = {var: func.__globals__[var] for var in func.__globals__ if var in glob}
-    return {**dump_special_attributes(func, func_attributes), "__globals__": dump_obj(glob_dct)}
-
-
-def dump_user_class(obj):
-    dict_to_dump = dump_simple_object(obj)
-    dict_to_dump["__name__"] = dump_obj(getattr(obj, "__name__"))
-    dict_to_dump["__bases__"] = dump_obj(getattr(obj, "__bases__"))
-    dict_to_dump["__dict__"] = dump_obj(getattr(obj, "__dict__"))
-    return dict_to_dump
+    return {
+        **dump_special_attributes(func, func_attributes),
+        "__globals__": dump_obj(glob_dct),
+    }
 
 
 implemented = {
     type(None): dump_as_is,
     bool: dump_as_is,
-    type: dump_user_class,
     object: dump_simple_object,
     int: dump_as_is,
     float: dump_as_is,
@@ -155,8 +156,8 @@ def dump_obj(obj):
     if id(obj) in dict_of_dumped:
         return {"__id__": dump_hint(obj)}
     if type(obj) in unimplemented:
-        raise TypeError(f"<{dump_hint(obj)}> has unimplemented type")
-    return implemented.get(type(obj), dump_user_class)(obj)
+        raise TypeError("<{}> has unimplemented type".format(dump_hint(obj)))
+    return implemented[type(obj)](obj)
 
 
 def dump(obj):
